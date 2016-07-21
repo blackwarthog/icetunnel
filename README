@@ -1,0 +1,114 @@
+IceTunnel allow to pass TCP-traffic via UDP and increase speed on channels with big percent of packet loss
+
+Usage: 
+    icetunnel
+        --daemon
+        --test
+        --test-tcp-remote-address <address>
+        --test-udp-remote-address <address>
+        --tcp-backlog <value>
+        --tcp-receive-address-size <value>
+        --udp-receive-packet-size <value>
+        --udp-receive-address-size <value>
+        --udp-send-packet-size <value>
+        --udp-max-sent-buffer-size <value>
+        --udp-max-receive-buffer-size <value>
+        --udp-max-sent-measure-size <value>
+        --udp-resend-count <value>
+        --confirmation-resend-count <value>
+        --udp-max-send-loss-percent <value>
+        --udp-initial-send-interval-us <value>
+        --udp-resend-us <value>
+        --build-confirmations-us <value>
+        --build-udp-packets-us <value>
+        --udp-max-sent-measure-us <value>
+        --udp-listener <from> <to>
+        --tcp-listener <from> <to>
+        --test-listener <address>
+        --help
+
+Description:
+
+  --daemon
+    disable logging
+
+  --test
+    run tests
+
+  --test-tcp-remote-address <address>
+    address of remote test-listener
+
+  --test-udp-remote-address <address>
+    address of remote udp-tunnel to test-listener
+
+  --tcp-backlog <value>
+    backlog parameter for listen() function
+
+  --tcp-receive-address-size <value>
+    maximum size of tcp-address data
+
+  --udp-receive-packet-size <value>
+    size of buffer to receive single udp-packet
+
+  --udp-receive-address-size <value>
+    maximum size of udp-address data
+
+  --udp-send-packet-size <value>
+    size of sent udp-packets
+
+  --udp-max-sent-buffer-size <value>
+    size of send buffer per connection
+
+  --udp-max-receive-buffer-size <value>
+    size of receive buffer connection
+
+  --udp-max-sent-measure-size <value>
+    amount of transfered data to do single speed measure
+
+  --udp-resend-count <value>
+    count of tries to send udp-packet before disconnect
+
+  --confirmation-resend-count <value>
+    count of confirmations for each received udp-packet
+
+  --udp-max-send-loss-percent <value>
+    percent of loss packets, creater value produce more extra traffic, but when value less then real loss percend of the line, speed falls down to zero
+
+  --udp-initial-send-interval-us <value>
+    initial interval in microseconds of send udp-packets, determines initial speed of connection, uses when no one measure complete yet
+
+  --udp-resend-us <value>
+    time in microseconds of awaiting confirmation before resending udp-packet
+
+  --build-confirmations-us <value>
+    interval in microseconds of send confirmations
+
+  --build-udp-packets-us <value>
+    time in microseconds of awaiting data from tcp before send non-full udp-packet
+
+  --udp-max-sent-measure-us <value>
+    time in microseconds to do single speed measure
+
+  --udp-listener <from> <to>
+    server-side of tunnel forward all incoming udp-connections to specified tcp-address
+
+  --tcp-listener <from> <to>
+    client-side of tunnel forward all incoming tcp-connections to specified address of udp-listener
+
+  --test-listener <address>
+    simple server uses to do some tests, see: --test-tcp-remote-address, --test-tcp-remote-address
+
+  --help
+    show help
+
+
+Example server (listen UDP-port 1234 and forward it into SOCKS proxy runned at IP 1.2.3.4):
+    icetunnel --udp-listener 1234 1.2.3.4:1080
+
+Example client (listen TCP-port 1080 and forward int into UDP 4.3.2.1:1234 and next to SOCKS proxy runned at IP 1.2.3.4):
+    icetunnel --tcp-listener 1080 4.3.2.1:1234
+    
+Download win32/64 binaries:
+    http://icystar.com/downloads/icetunnel-win-bin.zip
+    md5: 4c9704ace26a258cc887749c518f3dc5
+    

@@ -1,0 +1,16 @@
+CXX = i686-w64-mingw32-c++
+CXXFLAGS += -D_WIN32_WINNT=0x0600
+LIBS += -lws2_32 -static
+TARGET_POSTFIX=32.exe
+
+SOURCES += \
+	address.win.cpp \
+	platform.win.cpp \
+	socket.win.cpp	
+
+OBJS += \
+	address.win.o \
+	platform.win.o \
+	socket.win.o	
+
+include Makefile.common

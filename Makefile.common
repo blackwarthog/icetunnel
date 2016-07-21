@@ -1,0 +1,83 @@
+TARGET = icetunnel
+TARGET := $(TARGET)$(TARGET_POSTFIX)
+DEPLIBS =
+
+CXXFLAGS += -O3 -Wall -std=c++11 -fmessage-length=0
+CXXFLAGS += #`pkg-config --cflags $(DEPLIBS)`
+
+HEADERS += \
+	address.h \
+	connection.h \
+	event.h \
+	log.h \
+	main.h \
+	packet.h \
+	platform.h \
+	server.h \
+	socket.h \
+	test/benchmarktcpclient.h \
+	test/benchmarktcpserver.h \
+	test/queue.h \
+	test/random.h \
+	test/simpletcpclient.h \
+	test/simpletcpserver.h \
+	test/test.h \
+	test/testbenchmark.h \
+	test/testlauncher.h \
+	test/testsimpletcp.h \
+	test/testtransfer.h
+
+SOURCES += \
+	address.cpp \
+	connection.cpp \
+	event.cpp \
+	log.cpp \
+	main.cpp \
+	packet.cpp \
+	platform.cpp \
+	server.cpp \
+	socket.cpp \
+	test/benchmarktcpclient.cpp \
+	test/benchmarktcpserver.cpp \
+	test/queue.cpp \
+	test/random.cpp \
+	test/simpletcpclient.cpp \
+	test/simpletcpserver.cpp \
+	test/test.cpp \
+	test/testbenchmark.cpp \
+	test/testlauncher.cpp \
+	test/testsimpletcp.cpp \
+	test/testtransfer.cpp
+
+OBJS += \
+	address.o \
+	connection.o \
+	event.o \
+	log.o \
+	main.o \
+	packet.o \
+	platform.o \
+	server.o \
+	socket.o \
+	test/benchmarktcpclient.o \
+	test/benchmarktcpserver.o \
+	test/queue.o \
+	test/random.o \
+	test/simpletcpclient.o \
+	test/simpletcpserver.o \
+	test/test.o \
+	test/testbenchmark.o \
+	test/testlauncher.o \
+	test/testsimpletcp.o \
+	test/testtransfer.o
+	
+DEPS = $(HEADERS) $(SOURCES) 
+LIBS += #`pkg-config --libs $(DEPLIBS)`
+
+$(TARGET):	$(OBJS)
+	$(CXX) -o $(TARGET) $(OBJS) $(LIBS)
+
+all:	$(TARGET)
+
+clean:
+	rm -f $(OBJS) $(TARGET)

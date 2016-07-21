@@ -1,0 +1,11 @@
+SOURCES += \
+	address.linux.cpp \
+	platform.linux.cpp \
+	socket.linux.cpp	
+
+OBJS += \
+	address.linux.o \
+	platform.linux.o \
+	socket.linux.o	
+
+include Makefile.common
