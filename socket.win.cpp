@@ -21,6 +21,7 @@
 #include <windows.h>
 
 #include "socket.h"
+#include "platform.h"
 
 
 struct Socket::Internal {
@@ -33,9 +34,12 @@ struct Socket::Group::Internal {
 	std::vector<WSAPOLLFD> events;
 	std::vector<Socket*> sockets;
 
+	std::vector<WSAPOLLFD> edgeEvents;
+	std::vector<short*> edgePointers;
+
 	void registerSocket(Socket &socket) {
-		events.push_back(WSAPOLLFD());
 		sockets.push_back(&socket);
+		events.push_back(WSAPOLLFD());
 		memset(&events.back(), 0, sizeof(events.back()));
 		events.back().fd = socket.internal->fd;
 		events.back().events = POLLRDNORM | POLLWRNORM;
@@ -65,11 +69,32 @@ void Socket::Group::poll(long long durationUs) {
 	if (durationUs < 0) durationUs = 0;
 	long long durationMs = (durationUs + rand()%1000)/1000;
 
-	if (WSAPoll(&internal->events.front(), internal->events.size(), durationMs) < 0) {
+	if (WSAPoll(&internal->events.front(), internal->events.size(), 0) < 0) {
 		log->errorno(name, "WSAPoll failed");
 		Sleep(1);
 		return;
 	}
+
+	internal->edgeEvents.clear();
+	internal->edgePointers.clear();
+    for(std::vector<WSAPOLLFD>::iterator i = internal->events.begin(); i != internal->events.end(); ++i) {
+    	short events = ~i->revents & (POLLRDNORM | POLLWRNORM);
+    	if (events) {
+    		internal->edgeEvents.push_back(*i);
+    		internal->edgeEvents.back().events = events;
+    		internal->edgePointers.push_back(&i->revents);
+    	}
+    }
+
+	if (WSAPoll(&internal->edgeEvents.front(), internal->edgeEvents.size(), durationMs) < 0) {
+		log->errorno(name, "WSAPoll for edgeEvents failed");
+		Sleep(1);
+		return;
+	}
+
+	std::vector<short*>::iterator ip = internal->edgePointers.begin();
+    for(std::vector<WSAPOLLFD>::iterator i = internal->edgeEvents.begin(); i != internal->edgeEvents.end(); ++i, ++ip)
+    	**ip |= i->revents;
 
     for(int i = 0; i < (int)internal->events.size(); ++i) {
     	short revents = internal->events[i].revents;
