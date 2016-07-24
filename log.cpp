@@ -34,7 +34,7 @@ std::string Log::vstrprintf(const char *format, va_list args) {
 	va_copy(argsCopy, args);
 	int size = vsnprintf(NULL, 0, format, args);
 	if (size > 0) {
-		str.resize(size+1);
+		str.resize(size);
 		vsnprintf(&str[0], size+1, format, argsCopy);
 	}
 	va_end(argsCopy);

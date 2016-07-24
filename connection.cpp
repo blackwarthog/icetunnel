@@ -654,7 +654,7 @@ void Connection::udpRead(const Packet &packet) {
 	} else
 	if ( packet.getIndex() >= udpReceivedMasterIndex
 	  && packet.getIndex() < udpReceivedFinalIndex
-	  && (packet.getIndex() - tcpNextSendIndex <= udpMaxReceiveBufferSize/udpSendPacketSize)
+	  //&& (packet.getIndex() - tcpNextSendIndex <= udpMaxReceiveBufferSize/udpSendPacketSize)
 	  //&& (udpReceiveBufferSize < udpMaxReceiveBufferSize || (tcpNextSendIndex == udpReceivedMasterIndex && packet.getIndex() == udpReceivedMasterIndex))
 	  && ( (packet.getType() == Packet::Hello && packet.getIndex() == 0)
 	    || packet.getType() == Packet::Bye
@@ -699,6 +699,8 @@ void Connection::udpRead(const Packet &packet) {
 				eventTcpWrite.setTimeRelativeNow();
 			if (udpReceivedMasterIndex >= udpReceivedFinalIndex)
 				eventUdpCloseWait.setTimeRelativeNow(udpResendUs*udpResendCount + udpResendUs);
+		} else {
+			server->statUdpReceivedExtra += packet.getRawSize();
 		}
 		remainConfirmationResendCount = confirmationResendCount;
 		eventBuildConfirmations.setTimeRelativeNow(buildConfirmationsUs);
@@ -752,7 +754,11 @@ bool Connection::isUdpFinished() {
 
 void Connection::onUdpSentBufferChanged(int sizeIncrement) {
 	udpSentBufferSize += sizeIncrement;
-	if (tcpConnected && udpConnected && udpSentBufferSize < udpMaxSentBufferSize)
+	int count = udpSentPackets.empty() ? 0
+			  : udpSentPackets.end()->first - udpSentPackets.begin()->first;
+	int maxCount = (int)(10ll*1000000ll/udpSendIntervalUs);
+	maxCount = std::min(maxCount, udpMaxSentBufferSize/udpSendPacketSize);
+	if (count <= maxCount)
 		eventTcpRead.setTimeRelativeNow();
 	else
 		eventTcpRead.disable();
@@ -784,17 +790,26 @@ void Connection::onUdpDelivered(bool success, int measureIndex, int size) {
 	  && i->second.count > 0
 	  && i->second.successSize + i->second.failSize >= i->second.size
 	) {
+		double durationUs = (double)(i->second.endUs - i->second.beginUs);
 		double intervalUs = (double)i->second.summaryIntervalUs/(double)i->second.count;
-		double aclualIntervalUs = (double)(i->second.endUs - i->second.beginUs)/(double)i->second.count;
+		double actualIntervalUs = durationUs/(double)i->second.count;
 
-		double speedAmplifier = (double)i->second.successSize/(double)i->second.size/(1.0 - 0.01*udpMaxSendLossPercent);
+		double successPart = (double)i->second.successSize/(double)i->second.size;
+
+		double speedAmplifier = (double)successPart/(1.0 - 0.01*udpMaxSendLossPercent);
 		if (i->second.failSize <= 0) speedAmplifier = 2.0;
-		if (speedAmplifier > 1.0 && aclualIntervalUs > (intervalUs + 1.0)*2.0) speedAmplifier = 1.0;
-		if (speedAmplifier < 0.5) speedAmplifier = 0.5;
+		if (speedAmplifier > 1.0 && actualIntervalUs > (intervalUs + 1.0)*2.0) speedAmplifier = 1.0;
+		if (speedAmplifier < 0.5) speedAmplifier = 0.50;
 		if (speedAmplifier > 2.0) speedAmplifier = 2.0;
 
-		double maxIntervalUs = (double)(udpResendUs/3);
 		udpSendIntervalUsFloat = intervalUs/speedAmplifier;
+
+		// add constant speed to autobalance connections
+		double maxIntervalUs = (double)(udpResendUs/3);
+		double addSpeed = 1.0/maxIntervalUs; // packets/usec
+
+		udpSendIntervalUsFloat = udpSendIntervalUsFloat/(1.0 + addSpeed*udpSendIntervalUsFloat);
+
 		if (udpSendIntervalUsFloat < 0.1) udpSendIntervalUsFloat = 0.1;
 		if (udpSendIntervalUsFloat > maxIntervalUs) udpSendIntervalUsFloat = maxIntervalUs;
 

@@ -152,6 +152,9 @@ public:
 	BenchmarkTcpServer* createTestListener(const Address &tcpAddress);
 	Connection* createConnection(Socket &tcpSocket, UdpListener &udpListener, const Address &udpAddress);
 
+	long long getUdpInitialIntervalUs() const;
+	double getUdpInitialSpeed() const;
+
 	void run(long long stepUs = 2000000);
 
 	void begin();

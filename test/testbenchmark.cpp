@@ -58,7 +58,8 @@ void TestBenchmark::run() {
 	Server server(name + "(server)");
 	if (single && remoteAddress.data.empty())
 		server.udpMaxSentBufferSize = 64*1024*1024;
-	//server.udpInitialSendIntervalUs *= 10*maxClients;
+	if (!single)
+		server.udpInitialSendIntervalUs *= 10;//*maxClients;
 	if (!addressClient.data.empty() && !addressTunnel.data.empty())
 		server.createTcpListener(addressClient, addressTunnel);
 	if (!addressTunnel.data.empty() && !addressServer.data.empty())
@@ -161,12 +162,13 @@ void TestBenchmark::run() {
 
 	double logAverageSqrDeviation = count > 0 ? logSummarySqrDeviation/(double)count : 0.0;
 	log->info(name, "simultaneous connections count %d", maxClients);
-	log->info(name, "full %f kB/s, avg %f kB/s, min %f kB/s, max %f kB/s, deviation %f dB",
+	log->info(name, "full %f kB/s, avg %f kB/s, min %f kB/s, max %f kB/s, deviation %f dB (%f KB/s)",
 		1000000.0*(double)sizeSummary/(double)durationUs/1024.0,
 		1000000.0*(double)sizeSummary/(double)durationUs/1024.0/(double)maxClients,
 		minSpeed/1024.0,
 		maxSpeed/1024.0,
-		::sqrt(logAverageSqrDeviation)*10.0 );
+		::sqrt(logAverageSqrDeviation)*10.0,
+		(::pow(10.0, logAverage) - ::pow(10.0, logAverage - ::sqrt(logAverageSqrDeviation)))/1024.0 );
 
 	while(!clients.empty()) delete *clients.begin();
 	if (benchmarkTcpServer) delete benchmarkTcpServer;

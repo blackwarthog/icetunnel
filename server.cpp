@@ -172,7 +172,7 @@ Server::Server(const std::string &name):
 	udpSendPacketSize(1024), // (1460),
 	udpMaxSentBufferSize(8*1024*1024),
 	udpMaxReceiveBufferSize(8*1024*1024),
-	udpMaxSentMeasureSize(128*1024),
+	udpMaxSentMeasureSize(64*1024),
 	udpResendCount(20),
 	confirmationResendCount(5),
 	udpMaxSendLossPercent(30.0),
@@ -180,7 +180,7 @@ Server::Server(const std::string &name):
 	udpResendUs(1000000),
 	buildConfirmationsUs(100000),
 	buildUdpPacketsUs(100000),
-	udpMaxSentMeasureUs(3000000),
+	udpMaxSentMeasureUs(1000000),
 	udpSummaryConnectionsSendIntervalUs(),
 	statTcpSent(),
 	statTcpReceived(),
@@ -293,6 +293,32 @@ BenchmarkTcpServer* Server::createTestListener(const Address &tcpAddress) {
 	return testListener;
 }
 
+long long Server::getUdpInitialIntervalUs() const {
+	long long udpSendIntervalUs = udpInitialSendIntervalUs;
+	if (!connections.empty()) {
+		double summarySpeed = 0.0;
+		int count = 0;
+		for(std::set<Connection*>::const_iterator i = connections.begin(); i != connections.end(); ++i)
+			if (!(*i)->isNoMoreDataWillBeSent()) {
+				summarySpeed += 1.0/(double)std::max(10ll, (*i)->getUdpSendIntervalUs());
+				++count;
+			}
+		if (count > 0) {
+			summarySpeed = std::max(summarySpeed, 0.25/(double)udpInitialSendIntervalUs);
+			udpSendIntervalUs = (long long)::ceil((double)(count+1)/summarySpeed);
+			if (udpSendIntervalUs > udpResendUs/3)
+				udpSendIntervalUs = udpResendUs/3;
+			if (udpSendIntervalUs < udpInitialSendIntervalUs/2)
+				udpSendIntervalUs = udpInitialSendIntervalUs/2;
+		}
+	}
+	return udpSendIntervalUs;
+}
+
+double Server::getUdpInitialSpeed() const {
+	return 1000000.0*(double)udpSendPacketSize/(double)getUdpInitialIntervalUs();
+}
+
 Connection* Server::createConnection(Socket &tcpSocket, UdpListener &udpListener, const Address &udpAddress) {
 	std::string shortName = Log::strprintf("#%d", ++lastObjectIndex);
 	std::string name = Log::strprintf("%s connection %s <-> %s", shortName.c_str(), tcpSocket.getAddressRemote().toString().c_str(), udpAddress.toString().c_str());
@@ -305,10 +331,6 @@ Connection* Server::createConnection(Socket &tcpSocket, UdpListener &udpListener
 		log.warning("already exists connection with same udp address (%s)", c->getName().c_str());
 		return NULL;
 	}
-
-	long long udpSendIntervalUs = connections.empty()
-			                    ? udpInitialSendIntervalUs
-			                    : (long long)ceil((double)udpSummaryConnectionsSendIntervalUs/(double)connections.size());
 
 	Connection *connection = new Connection(
 		*this,
@@ -324,7 +346,7 @@ Connection* Server::createConnection(Socket &tcpSocket, UdpListener &udpListener
 		udpResendCount,
 		confirmationResendCount,
 		udpMaxSendLossPercent,
-		udpSendIntervalUs,
+		getUdpInitialIntervalUs(),
 		udpResendUs,
 		buildConfirmationsUs,
 		buildUdpPacketsUs,
@@ -395,6 +417,37 @@ bool Server::step(long long stepUs) {
 			udpSend/1024.0,
 			udpReceive/1024.0,
 			udpReceiveExtra/1024.0 );
+
+		int count = 0;
+		double minSpeed = 0.0;
+		double maxSpeed = 0.0;
+		double sumSpeed = 0.0;
+		for(std::set<Connection*>::const_iterator i = connections.begin(); i != connections.end(); ++i)
+			if (!(*i)->isNoMoreDataWillBeSent()) {
+				double speed = 1000000.0*(double)udpSendPacketSize/std::max(10ll, (*i)->getUdpSendIntervalUs());
+				if (count == 0 || minSpeed > speed) minSpeed = speed;
+				if (count == 0 || maxSpeed < speed) maxSpeed = speed;
+				sumSpeed += speed;
+				++count;
+			}
+		double avgSpeed = count ? sumSpeed/(double)count : 0.0;
+
+		double sumSqrDeviation = 0.0;
+		for(std::set<Connection*>::const_iterator i = connections.begin(); i != connections.end(); ++i)
+			if (!(*i)->isNoMoreDataWillBeSent()) {
+				double speed = 1000000.0*(double)udpSendPacketSize/std::max(10ll, (*i)->getUdpSendIntervalUs());
+				sumSqrDeviation += (speed - avgSpeed)*(speed - avgSpeed);
+			}
+		double avgDeviation = count ? ::sqrt(sumSqrDeviation/(double)count) : 0;
+
+		log.info(name,
+			"connections %d, initial speed %fKB/s, avg %fKB/s, min %fKB/s, max %fKB/s, deviation %fKB/s",
+			count,
+			getUdpInitialSpeed()/1024.0,
+			avgSpeed/1024.0,
+			minSpeed/1024.0,
+			maxSpeed/1024.0,
+			avgDeviation/1024.0 );
 
 		statLastMeasureUs = pollEndUs;
 		statCpuWorkUs = 0;

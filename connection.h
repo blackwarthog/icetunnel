@@ -161,12 +161,18 @@ private:
 	void tcpClose(bool error = false);
 	void udpClose(bool error = false);
 
+public:
 	bool isNoMoreDataWillBeSent();
+
+private:
 	bool isUdpFinished();
 	void onUdpSentBufferChanged(int sizeIncrement);
 	void onUdpSent(int measureIndex, long long intervalUs, int size);
 	void onUdpDelivered(bool success, int measureIndex, int size);
 	void setEventUdpWrite();
+
+public:
+	long long getUdpSendIntervalUs() const { return udpSendIntervalUs; }
 };
 
 #endif
