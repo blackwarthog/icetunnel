@@ -396,6 +396,9 @@ void Connection::udpWrite(long long plannedTimeUs) {
 void Connection::buildUdpPackets(bool flush) {
 	if (!udpConnected) return;
 
+	if (udpReceivedFinalIndex == udpReceivedMasterIndex)
+		tcpReceivedData.clear();
+
 	int fullSize = 0;
 	for(int i = 0; i < (int)tcpReceivedData.size(); i += udpSendPacketSize) {
 		int size = std::min((int)tcpReceivedData.size() - i, udpSendPacketSize);
@@ -654,7 +657,7 @@ void Connection::udpRead(const Packet &packet) {
 	} else
 	if ( packet.getIndex() >= udpReceivedMasterIndex
 	  && packet.getIndex() < udpReceivedFinalIndex
-	  //&& (packet.getIndex() - tcpNextSendIndex <= udpMaxReceiveBufferSize/udpSendPacketSize)
+	  && (packet.getIndex() - tcpNextSendIndex <= 2*udpMaxReceiveBufferSize/udpSendPacketSize)
 	  //&& (udpReceiveBufferSize < udpMaxReceiveBufferSize || (tcpNextSendIndex == udpReceivedMasterIndex && packet.getIndex() == udpReceivedMasterIndex))
 	  && ( (packet.getType() == Packet::Hello && packet.getIndex() == 0)
 	    || packet.getType() == Packet::Bye
@@ -736,7 +739,7 @@ void Connection::udpRead(const Packet &packet) {
 }
 
 bool Connection::isNoMoreDataWillBeSent() {
-	return !tcpConnected
+	return (!tcpConnected || udpReceivedFinalIndex == udpReceivedMasterIndex)
 		&& tcpReceivedData.empty()
 		&& udpSentPackets.empty();
 }
