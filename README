@@ -110,5 +110,5 @@ Example client (listen TCP-port 1080 and forward int into UDP 4.3.2.1:1234 and n
     
 Download win32/64 binaries:
     http://icystar.com/downloads/icetunnel-win-bin.zip
-    md5: c78529738392b46eb9a86d9420bb713f
+    md5: 97f66bd57fe3e00e753dc758f9dcd49b
     
